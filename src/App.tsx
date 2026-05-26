@@ -62,6 +62,7 @@ const statusMeta: Record<
     color: string
   }
 > = {
+  perfect: { label: '100%', icon: '[100]', color: 'status-perfect' },
   completed: { label: 'Completed', icon: '[OK]', color: 'status-completed' },
   played: { label: 'Played & Put Away', icon: '[PA]', color: 'status-played' },
   backlog: { label: 'Backlog', icon: '[BL]', color: 'status-backlog' },
@@ -70,6 +71,7 @@ const statusMeta: Record<
 
 const filters: Array<'all' | GameStatus> = [
   'all',
+  'perfect',
   'completed',
   'backlog',
   'played',
@@ -78,6 +80,7 @@ const filters: Array<'all' | GameStatus> = [
 
 const filterLabelMap: Record<'all' | GameStatus, string> = {
   all: 'All',
+  perfect: '100%',
   completed: 'Completed',
   backlog: 'Backlog',
   played: 'Played & Put Away',
@@ -104,10 +107,10 @@ function App() {
       window.matchMedia('(max-width: 720px)').matches,
   )
   const [mobileColumns, setMobileColumns] = useState<2 | 3>(() =>
-    readStoredColumnValue(MOBILE_COLUMNS_STORAGE_KEY, mobileColumnOptions, 2),
+    readStoredColumnValue(MOBILE_COLUMNS_STORAGE_KEY, mobileColumnOptions, 3),
   )
   const [desktopColumns, setDesktopColumns] = useState<4 | 5 | 7 | 10>(() =>
-    readStoredColumnValue(DESKTOP_COLUMNS_STORAGE_KEY, desktopColumnOptions, 5),
+    readStoredColumnValue(DESKTOP_COLUMNS_STORAGE_KEY, desktopColumnOptions, 7),
   )
   const [sortMode, setSortMode] = useState<SortMode>(readStoredSortMode)
   const [searchInput, setSearchInput] = useState('')
@@ -245,6 +248,7 @@ function App() {
   const filterCounts = useMemo(() => {
     const counts: Record<'all' | GameStatus, number> = {
       all: games.length,
+      perfect: 0,
       completed: 0,
       backlog: 0,
       played: 0,
@@ -277,7 +281,7 @@ function App() {
   const handleAuthenticate = (event: FormEvent) => {
     event.preventDefault()
 
-    const normalized = loginPasswordInput.trim()
+    const normalized = loginPasswordInput.trim().toLowerCase()
     if (!isCollectionPassword(normalized)) {
       setLoginError('Invalid password.')
       return
@@ -292,7 +296,7 @@ function App() {
   }
 
   const handleSwitchCollection = () => {
-    const normalized = switchPasswordInput.trim()
+    const normalized = switchPasswordInput.trim().toLowerCase()
     if (!isCollectionPassword(normalized)) {
       setSwitchError('Invalid password.')
       return
@@ -502,7 +506,6 @@ function App() {
         <header className="topbar">
           <div>
             <p className="kicker">Game Backlog Tracker</p>
-            <h1>Track what you finish, shelve, and tackle next.</h1>
           </div>
         </header>
 
@@ -540,14 +543,13 @@ function App() {
           className="page-menu-btn"
           onClick={() => setIsScopeManagerOpen(true)}
         >
-          Collection
+          Change Collection
         </button>
       </div>
 
       <header className="topbar">
         <div>
           <p className="kicker">Game Backlog Tracker</p>
-          <h1>Track what you finish, shelve, and tackle next.</h1>
           <p className="meta">Active collection: {collectionPassword}</p>
         </div>
         {deferredInstallPrompt && (
@@ -575,21 +577,6 @@ function App() {
         {trimmedSearch.length >= 2 && searchError && (
           <p className="error">{searchError}</p>
         )}
-        <p className="meta">
-          Search sources:{' '}
-          <a href="https://www.cheapshark.com" target="_blank" rel="noreferrer">
-            CheapShark
-          </a>{' '}
-          +{' '}
-          <a href="https://www.freetogame.com" target="_blank" rel="noreferrer">
-            FreeToGame
-          </a>{' '}
-          +{' '}
-          <a href="https://store.steampowered.com" target="_blank" rel="noreferrer">
-            Steam Search
-          </a>
-        </p>
-
         {trimmedSearch.length >= 2 && searchResults.length > 0 && (
           <div className="search-grid">
             {searchResults.map((result) => {
@@ -639,7 +626,6 @@ function App() {
 
       <section className="collection-panel">
         <div className="collection-header">
-          <h2>Your collection</h2>
           <div className="collection-controls">
             <div className="filters">
               {filters.map((filter) => (

@@ -1,4 +1,4 @@
-export type GameStatus = 'backlog' | 'playing' | 'played' | 'completed'
+export type GameStatus = 'backlog' | 'playing' | 'played' | 'completed' | 'perfect'
 
 export interface GameEntry {
   id: string
