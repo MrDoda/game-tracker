@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "game-backlog-7680e"
+  },
+  "targets": {
+    "game-backlog-7680e": {
+      "hosting": {
+        "gamebacklog": [
+          "gamebacklog"
+        ]
+      }
+    }
+  }
+}
+

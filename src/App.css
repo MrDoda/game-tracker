@@ -1,0 +1,334 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #f2f4f7;
+  --bg-card: #ffffff;
+  --ink: #0f172a;
+  --muted: #4b5563;
+  --line: #d6dce6;
+  --teal: #0f766e;
+  --orange: #e97b2c;
+  --blue: #2563eb;
+  --green: #0f9f6e;
+  --amber: #b7791f;
+  --shadow: 0 18px 40px rgba(16, 34, 51, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: radial-gradient(circle at 15% 5%, #e1f7f3 0%, #f2f4f7 36%),
+    radial-gradient(circle at 90% 5%, #ffe8d2 0%, #f2f4f7 30%);
+  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+}
+
+h1,
+h2,
+h3,
+label,
+button {
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+.app-shell {
+  width: min(1120px, 100% - 2rem);
+  margin: 0 auto;
+  padding: 1.2rem 0 2.4rem;
+  position: relative;
+}
+
+.hero-gradient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(140deg, rgba(24, 146, 117, 0.15), rgba(233, 123, 44, 0.08));
+  filter: blur(40px);
+  transform: translateY(-35%);
+  z-index: -1;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.2rem;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+  color: var(--teal);
+  font-weight: 700;
+}
+
+h1 {
+  margin: 0.5rem 0 0;
+  max-width: 620px;
+  font-size: clamp(1.45rem, 3vw, 2.5rem);
+  line-height: 1.15;
+}
+
+.install-btn,
+.installed-pill {
+  margin-top: 0.25rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.72rem 1rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.install-btn {
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(130deg, #0f766e, #1e978b);
+  box-shadow: var(--shadow);
+}
+
+.installed-pill {
+  background: #dff5e9;
+  color: #0d7c55;
+}
+
+.search-panel,
+.collection-panel {
+  background: color-mix(in srgb, var(--bg-card) 92%, #f8fafc 8%);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  padding: 1rem;
+}
+
+.search-panel {
+  margin-bottom: 1rem;
+}
+
+.search-panel label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.search-panel input {
+  width: 100%;
+  border: 1px solid #b6c1ce;
+  border-radius: 12px;
+  padding: 0.88rem 0.95rem;
+  font-size: 0.98rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-panel input:focus {
+  outline: none;
+  border-color: #0f766e;
+  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.14);
+}
+
+.search-grid,
+.collection-grid {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.search-grid {
+  grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+}
+
+.search-card,
+.game-card {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.search-card img,
+.game-card img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  background: #d8dee8;
+}
+
+.search-card-info,
+.game-info {
+  padding: 0.72rem;
+}
+
+.search-card h3,
+.game-card h3 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.search-card p {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.search-actions {
+  margin-top: 0.65rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.source-pill,
+.status-pill {
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.74rem;
+  padding: 0.26rem 0.55rem;
+}
+
+.source-pill {
+  background: #e8eef5;
+  color: #2f3f52;
+  text-transform: capitalize;
+}
+
+.search-actions button {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.42rem 0.72rem;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(130deg, #0d7666, #138d79);
+  cursor: pointer;
+}
+
+.search-actions button:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.collection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.filters button {
+  border-radius: 999px;
+  border: 1px solid #bec8d5;
+  background: white;
+  color: #1f2937;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filters button.active {
+  border-color: #0f766e;
+  background: #dcfaf4;
+  color: #0f564f;
+}
+
+.collection-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.game-info {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.game-info select {
+  border-radius: 8px;
+  border: 1px solid #b6c1ce;
+  padding: 0.46rem;
+  font-size: 0.9rem;
+}
+
+.status-completed {
+  background: #d7f5e7;
+  color: #167f58;
+}
+
+.status-played {
+  background: #d9e8ff;
+  color: #1d55b4;
+}
+
+.status-backlog {
+  background: #fef1d9;
+  color: #9a5f13;
+}
+
+.status-playing {
+  background: #f8dfcf;
+  color: #ab4614;
+}
+
+.error {
+  margin: 0.75rem 0 0;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.empty,
+.meta {
+  margin: 0.8rem 0 0;
+  color: var(--muted);
+}
+
+.meta a {
+  color: var(--teal);
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    width: calc(100% - 1rem);
+    padding-bottom: 1rem;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .search-grid,
+  .collection-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .search-grid,
+  .collection-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
