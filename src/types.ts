@@ -4,6 +4,8 @@ export interface GameEntry {
   id: string
   title: string
   coverUrl: string
+  steamAppId?: string
+  customCover?: boolean
   status: GameStatus
   source: string
   externalId: string
@@ -15,6 +17,7 @@ export interface SearchResult {
   externalId: string
   title: string
   coverUrl: string
+  steamAppId?: string
   subtitle?: string
   score: number
 }

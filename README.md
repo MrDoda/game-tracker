@@ -11,7 +11,7 @@ PWA app built with React + TypeScript + Vite, using Firebase Firestore for stora
   - `Played & Put Away`
   - `Playing Now`
 - Top filters by status.
-- Search from multiple public game sources (`CheapShark` and `FreeToGame`) with add-to-collection action.
+- Search from multiple public game sources (`CheapShark`, `FreeToGame`, `Steam`) with add-to-collection action.
 - Firebase-backed persistence.
 - Installable as a Progressive Web App.
 
@@ -19,8 +19,17 @@ PWA app built with React + TypeScript + Vite, using Firebase Firestore for stora
 
 ```bash
 npm install
+# macOS/Linux
+cp .env.example .env
+
+# Windows PowerShell
+Copy-Item .env.example .env
+
 npm run dev
 ```
+
+Fill `.env` with your Firebase web app values.  
+`.env` is git-ignored, while `.env.example` is tracked as a template.
 
 ## Build and checks
 

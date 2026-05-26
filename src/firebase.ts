@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import {
   collection,
+  deleteDoc,
   doc,
   onSnapshot,
   orderBy,
@@ -13,27 +14,40 @@ import {
 } from 'firebase/firestore'
 import type { GameEntry, GameStatus } from './types'
 
+const env = import.meta.env
+
+const readRequiredEnv = (key: keyof ImportMetaEnv) => {
+  const value = env[key]
+  if (!value) {
+    throw new Error(`Missing environment variable: ${key}`)
+  }
+  return value
+}
+
 const firebaseConfig = {
-  apiKey: 'AIzaSyDJdsFULZSDyQV8rZ-fHabOa9Uy0uz5sWU',
-  authDomain: 'game-backlog-7680e.firebaseapp.com',
-  projectId: 'game-backlog-7680e',
-  storageBucket: 'game-backlog-7680e.firebasestorage.app',
-  messagingSenderId: '761126433839',
-  appId: '1:761126433839:web:d004559e1d489af6ae02da',
+  apiKey: readRequiredEnv('VITE_FIREBASE_API_KEY'),
+  authDomain: readRequiredEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: readRequiredEnv('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: readRequiredEnv('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: readRequiredEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: readRequiredEnv('VITE_FIREBASE_APP_ID'),
 }
 
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
-const gamesCollection = collection(db, 'games')
 
 const buildId = (source: string, externalId: string) =>
   `${source}-${externalId}`.replace(/[^a-zA-Z0-9-_.]/g, '_')
 
+const gamesCollectionForScope = (scope: string) =>
+  collection(db, 'collections', scope, 'games')
+
 export const subscribeToGames = (
+  scope: string,
   onSuccess: (games: GameEntry[]) => void,
   onFailure: (error: FirestoreError) => void,
 ) => {
-  const gamesQuery = query(gamesCollection, orderBy('createdAt', 'desc'))
+  const gamesQuery = query(gamesCollectionForScope(scope), orderBy('createdAt', 'desc'))
 
   return onSnapshot(
     gamesQuery,
@@ -47,6 +61,8 @@ export const subscribeToGames = (
           id: entry.id,
           title: raw.title,
           coverUrl: raw.coverUrl,
+          steamAppId: raw.steamAppId,
+          customCover: raw.customCover,
           status: raw.status,
           source: raw.source,
           externalId: raw.externalId,
@@ -60,13 +76,15 @@ export const subscribeToGames = (
 }
 
 export const addGameToCollection = async (
+  scope: string,
   input: Omit<GameEntry, 'id' | 'createdAt' | 'status'>,
 ) => {
   const id = buildId(input.source, input.externalId)
   await setDoc(
-    doc(gamesCollection, id),
+    doc(gamesCollectionForScope(scope), id),
     {
       ...input,
+      customCover: false,
       status: 'backlog',
       createdAt: serverTimestamp(),
     },
@@ -74,7 +92,27 @@ export const addGameToCollection = async (
   )
 }
 
-export const updateGameStatus = async (id: string, status: GameStatus) => {
-  await updateDoc(doc(gamesCollection, id), { status })
+export const updateGameStatus = async (
+  scope: string,
+  id: string,
+  status: GameStatus,
+) => {
+  await updateDoc(doc(gamesCollectionForScope(scope), id), { status })
+}
+
+export const updateGameDetails = async (
+  scope: string,
+  id: string,
+  input: { title: string; coverUrl: string },
+) => {
+  await updateDoc(doc(gamesCollectionForScope(scope), id), {
+    title: input.title,
+    coverUrl: input.coverUrl,
+    customCover: true,
+  })
+}
+
+export const removeGameFromCollection = async (scope: string, id: string) => {
+  await deleteDoc(doc(gamesCollectionForScope(scope), id))
 }
 
