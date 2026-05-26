@@ -84,7 +84,7 @@ export const addGameToCollection = async (
     doc(gamesCollectionForScope(scope), id),
     {
       ...input,
-      customCover: false,
+      customCover: input.customCover ?? false,
       status: 'backlog',
       createdAt: serverTimestamp(),
     },

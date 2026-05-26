@@ -17,9 +17,13 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const COLLECTION_STORAGE_KEY = 'game-tracker-collection-password'
+const MOBILE_COLUMNS_STORAGE_KEY = 'game-tracker-mobile-columns'
+const DESKTOP_COLUMNS_STORAGE_KEY = 'game-tracker-desktop-columns'
+const SORT_MODE_STORAGE_KEY = 'game-tracker-sort-mode'
 const allowedCollectionPasswords = ['doda', 'lurson'] as const
 
 type CollectionPassword = (typeof allowedCollectionPasswords)[number]
+type SortMode = 'date' | 'alphabet'
 
 const isCollectionPassword = (value: string): value is CollectionPassword =>
   allowedCollectionPasswords.includes(value as CollectionPassword)
@@ -29,6 +33,25 @@ const readStoredCollectionPassword = (): CollectionPassword | null => {
   const raw = window.localStorage.getItem(COLLECTION_STORAGE_KEY)
   if (!raw) return null
   return isCollectionPassword(raw) ? raw : null
+}
+
+const readStoredColumnValue = <T extends number>(
+  key: string,
+  allowed: readonly T[],
+  fallback: T,
+): T => {
+  if (typeof window === 'undefined') return fallback
+  const raw = window.localStorage.getItem(key)
+  if (!raw) return fallback
+
+  const parsed = Number(raw)
+  return allowed.includes(parsed as T) ? (parsed as T) : fallback
+}
+
+const readStoredSortMode = (): SortMode => {
+  if (typeof window === 'undefined') return 'date'
+  const raw = window.localStorage.getItem(SORT_MODE_STORAGE_KEY)
+  return raw === 'alphabet' ? 'alphabet' : 'date'
 }
 
 const statusMeta: Record<
@@ -61,9 +84,8 @@ const filterLabelMap: Record<'all' | GameStatus, string> = {
   playing: 'Playing Now',
 }
 
-const mobileColumnOptions = [1, 2] as const
+const mobileColumnOptions = [2, 3] as const
 const desktopColumnOptions = [4, 5, 7, 10] as const
-
 function App() {
   const [collectionPassword, setCollectionPassword] = useState<CollectionPassword | null>(
     readStoredCollectionPassword,
@@ -81,19 +103,29 @@ function App() {
       typeof window !== 'undefined' &&
       window.matchMedia('(max-width: 720px)').matches,
   )
-  const [mobileColumns, setMobileColumns] = useState<1 | 2>(2)
-  const [desktopColumns, setDesktopColumns] = useState<4 | 5 | 7 | 10>(5)
+  const [mobileColumns, setMobileColumns] = useState<2 | 3>(() =>
+    readStoredColumnValue(MOBILE_COLUMNS_STORAGE_KEY, mobileColumnOptions, 2),
+  )
+  const [desktopColumns, setDesktopColumns] = useState<4 | 5 | 7 | 10>(() =>
+    readStoredColumnValue(DESKTOP_COLUMNS_STORAGE_KEY, desktopColumnOptions, 5),
+  )
+  const [sortMode, setSortMode] = useState<SortMode>(readStoredSortMode)
   const [searchInput, setSearchInput] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [firebaseError, setFirebaseError] = useState<string | null>(null)
   const [pendingId, setPendingId] = useState<string | null>(null)
+  const [mobileActionGame, setMobileActionGame] = useState<GameEntry | null>(null)
   const [gamePendingRemoval, setGamePendingRemoval] = useState<GameEntry | null>(null)
+  const [isAddGameOpen, setIsAddGameOpen] = useState(false)
   const [gamePendingEdit, setGamePendingEdit] = useState<GameEntry | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editCoverUrl, setEditCoverUrl] = useState('')
   const [editError, setEditError] = useState<string | null>(null)
+  const [newGameTitle, setNewGameTitle] = useState('')
+  const [newGameCoverUrl, setNewGameCoverUrl] = useState('')
+  const [newGameError, setNewGameError] = useState<string | null>(null)
   const [deferredInstallPrompt, setDeferredInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null)
   const trimmedSearch = searchInput.trim()
@@ -196,6 +228,20 @@ function App() {
     return games.filter((game) => game.status === activeFilter)
   }, [activeFilter, games])
 
+  const sortedGames = useMemo(() => {
+    const items = [...filteredGames]
+    if (sortMode === 'alphabet') {
+      return items.sort((a, b) => a.title.localeCompare(b.title))
+    }
+
+    return items.sort((a, b) => {
+      const right = b.createdAt ?? 0
+      const left = a.createdAt ?? 0
+      if (right !== left) return right - left
+      return a.title.localeCompare(b.title)
+    })
+  }, [filteredGames, sortMode])
+
   const filterCounts = useMemo(() => {
     const counts: Record<'all' | GameStatus, number> = {
       all: games.length,
@@ -216,6 +262,9 @@ function App() {
     ? mobileColumnOptions
     : desktopColumnOptions
   const activeColumns = isMobileLayout ? mobileColumns : desktopColumns
+  const isDenseCollection =
+    (isMobileLayout && activeColumns === 3) ||
+    (!isMobileLayout && (activeColumns === 7 || activeColumns === 10))
 
   const handleInstall = async () => {
     if (!deferredInstallPrompt) return
@@ -265,7 +314,14 @@ function App() {
     setSwitchError(null)
     setSearchInput('')
     setSearchResults([])
+    setMobileActionGame(null)
+    setIsAddGameOpen(false)
     setIsScopeManagerOpen(false)
+  }
+
+  const handleSortChange = (mode: SortMode) => {
+    setSortMode(mode)
+    window.localStorage.setItem(SORT_MODE_STORAGE_KEY, mode)
   }
 
   const handleAddGame = async (game: SearchResult) => {
@@ -291,6 +347,59 @@ function App() {
     }
   }
 
+  const openCreateGameDialog = () => {
+    setNewGameTitle('')
+    setNewGameCoverUrl('')
+    setNewGameError(null)
+    setIsAddGameOpen(true)
+  }
+
+  const handleCreateManualGame = async () => {
+    if (!collectionPassword) return
+
+    const title = newGameTitle.trim()
+    const coverUrl = newGameCoverUrl.trim()
+
+    if (!title) {
+      setNewGameError('Game name cannot be empty.')
+      return
+    }
+
+    if (!coverUrl) {
+      setNewGameError('Cover URL cannot be empty.')
+      return
+    }
+
+    try {
+      new URL(coverUrl)
+    } catch {
+      setNewGameError('Please enter a valid image URL (https://...).')
+      return
+    }
+
+    const safeTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    const externalId = `${safeTitle}-${Date.now()}`
+
+    setPendingId('create:manual')
+    setNewGameError(null)
+    setFirebaseError(null)
+
+    try {
+      await addGameToCollection(collectionPassword, {
+        title,
+        coverUrl,
+        source: 'manual',
+        externalId,
+        customCover: true,
+      })
+      setIsAddGameOpen(false)
+    } catch {
+      setNewGameError('Could not create game in Firebase.')
+    } finally {
+      setPendingId(null)
+    }
+  }
+
   const handleStatusChange = async (id: string, status: GameStatus) => {
     if (!collectionPassword) return
 
@@ -299,10 +408,20 @@ function App() {
 
     try {
       await updateGameStatus(collectionPassword, id, status)
+      return true
     } catch {
       setFirebaseError('Could not update game status in Firebase.')
+      return false
     } finally {
       setPendingId(null)
+    }
+  }
+
+  const handleMobileStatusChange = async (game: GameEntry, status: GameStatus) => {
+    if (status === game.status) return
+    const ok = await handleStatusChange(game.id, status)
+    if (ok) {
+      setMobileActionGame(null)
     }
   }
 
@@ -526,7 +645,7 @@ function App() {
               {filters.map((filter) => (
                 <button
                   key={filter}
-                  className={activeFilter === filter ? 'active' : ''}
+                  className={`filter-btn filter-${filter} ${activeFilter === filter ? 'active' : ''}`}
                   onClick={() => setActiveFilter(filter)}
                   type="button"
                 >
@@ -534,7 +653,11 @@ function App() {
                 </button>
               ))}
             </div>
-            <div className="column-toggle" role="group" aria-label="Collection columns">
+            <div
+              className={`column-toggle ${isMobileLayout ? 'mobile-toggle' : ''}`}
+              role="group"
+              aria-label="Collection columns"
+            >
               {activeColumnOptions.map((columns) => (
                 <button
                   key={columns}
@@ -542,9 +665,19 @@ function App() {
                   className={activeColumns === columns ? 'active' : ''}
                   onClick={() => {
                     if (isMobileLayout) {
-                      setMobileColumns(columns as 1 | 2)
+                      const value = columns as 2 | 3
+                      setMobileColumns(value)
+                      window.localStorage.setItem(
+                        MOBILE_COLUMNS_STORAGE_KEY,
+                        value.toString(),
+                      )
                     } else {
-                      setDesktopColumns(columns as 4 | 5 | 7 | 10)
+                      const value = columns as 4 | 5 | 7 | 10
+                      setDesktopColumns(value)
+                      window.localStorage.setItem(
+                        DESKTOP_COLUMNS_STORAGE_KEY,
+                        value.toString(),
+                      )
                     }
                   }}
                 >
@@ -552,46 +685,72 @@ function App() {
                 </button>
               ))}
             </div>
+            <div className="sort-toggle" role="group" aria-label="Collection sort">
+              <button
+                type="button"
+                className={sortMode === 'date' ? 'active' : ''}
+                onClick={() => handleSortChange('date')}
+              >
+                Date Added
+              </button>
+              <button
+                type="button"
+                className={sortMode === 'alphabet' ? 'active' : ''}
+                onClick={() => handleSortChange('alphabet')}
+              >
+                A-Z
+              </button>
+            </div>
           </div>
         </div>
 
         {firebaseError && <p className="error">{firebaseError}</p>}
 
-        {filteredGames.length === 0 ? (
+        {filteredGames.length === 0 && (
           <p className="empty">
             {games.length === 0
               ? 'Search for games above and add your first one to the backlog.'
               : 'No games match this filter yet.'}
           </p>
-        ) : (
-          <div
-            className="collection-grid"
-            style={{ gridTemplateColumns: `repeat(${activeColumns}, minmax(0, 1fr))` }}
-          >
-            {filteredGames.map((game) => {
+        )}
+        <div
+          className={`collection-grid ${isDenseCollection ? 'dense-grid' : ''}`}
+          style={{ gridTemplateColumns: `repeat(${activeColumns}, minmax(0, 1fr))` }}
+        >
+          {sortedGames.map((game) => {
               const status = statusMeta[game.status]
               return (
-                <article className="game-card" key={game.id}>
-                  <div className="remove-hotspot" aria-hidden="true">
-                    <div className="corner-actions">
-                      <button
-                        className="edit-btn-float"
-                        type="button"
-                        onClick={() => openEditDialog(game)}
-                        disabled={pendingId === `edit:${game.id}`}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="remove-btn-float"
-                        type="button"
-                        onClick={() => setGamePendingRemoval(game)}
-                        disabled={pendingId === `remove:${game.id}`}
-                      >
-                        {pendingId === `remove:${game.id}` ? 'Removing...' : 'Remove'}
-                      </button>
+                <article
+                  className={`game-card ${isDenseCollection ? 'dense-card' : ''}`}
+                  key={game.id}
+                  onClick={() => {
+                    if (isMobileLayout) {
+                      setMobileActionGame(game)
+                    }
+                  }}
+                >
+                  {!isMobileLayout && (
+                    <div className="remove-hotspot" aria-hidden="true">
+                      <div className="corner-actions">
+                        <button
+                          className="edit-btn-float"
+                          type="button"
+                          onClick={() => openEditDialog(game)}
+                          disabled={pendingId === `edit:${game.id}`}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="remove-btn-float"
+                          type="button"
+                          onClick={() => setGamePendingRemoval(game)}
+                          disabled={pendingId === `remove:${game.id}`}
+                        >
+                          {pendingId === `remove:${game.id}` ? 'Removing...' : 'Remove'}
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <div className="image-frame">
                     <GameCover
                       key={`${game.source}-${game.externalId}-${game.coverUrl}`}
@@ -604,36 +763,55 @@ function App() {
                     />
                   </div>
                   <div className="game-info">
-                    <h3>{game.title}</h3>
+                    {!isDenseCollection && <h3>{game.title}</h3>}
                     <span className={`status-pill ${status.color}`}>
-                      {status.icon} {status.label}
+                      {isDenseCollection ? status.icon : `${status.icon} ${status.label}`}
                     </span>
-                    <div className="bottom-hover-zone">
-                      <select
-                        value={game.status}
-                        onChange={(event) =>
-                          handleStatusChange(game.id, event.target.value as GameStatus)
-                        }
-                        disabled={pendingId === game.id}
-                      >
-                        {Object.entries(statusMeta).map(([id, value]) => (
-                          <option key={id} value={id}>
-                            {value.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {!isMobileLayout && (
+                      <div className="bottom-hover-zone">
+                        <select
+                          value={game.status}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={(event) =>
+                            handleStatusChange(game.id, event.target.value as GameStatus)
+                          }
+                          disabled={pendingId === game.id}
+                        >
+                          {Object.entries(statusMeta).map(([id, value]) => (
+                            <option key={id} value={id}>
+                              {value.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 </article>
               )
-            })}
-          </div>
-        )}
+          })}
+          <button
+            type="button"
+            className="add-game-card"
+            aria-label="Add new game"
+            onClick={openCreateGameDialog}
+          >
+            +
+          </button>
+        </div>
       </section>
 
       {gamePendingRemoval && (
-        <div className="dialog-backdrop" role="presentation">
-          <div className="confirm-dialog" role="dialog" aria-modal="true">
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onClick={() => setGamePendingRemoval(null)}
+        >
+          <div
+            className="confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
             <h3>Remove game?</h3>
             <p>
               Remove <strong>{gamePendingRemoval.title}</strong> from your collection?
@@ -655,8 +833,17 @@ function App() {
       )}
 
       {gamePendingEdit && (
-        <div className="dialog-backdrop" role="presentation">
-          <div className="confirm-dialog" role="dialog" aria-modal="true">
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onClick={() => setGamePendingEdit(null)}
+        >
+          <div
+            className="confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
             <h3>Edit game</h3>
             <div className="edit-form">
               <label htmlFor="edit-game-title">Visible name</label>
@@ -698,9 +885,134 @@ function App() {
         </div>
       )}
 
+      {isAddGameOpen && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onClick={() => setIsAddGameOpen(false)}
+        >
+          <div
+            className="confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3>Add game</h3>
+            <div className="edit-form">
+              <label htmlFor="new-game-title">Visible name</label>
+              <input
+                id="new-game-title"
+                type="text"
+                value={newGameTitle}
+                onChange={(event) => setNewGameTitle(event.target.value)}
+                placeholder="Game title"
+              />
+
+              <label htmlFor="new-game-cover-url">Cover image URL</label>
+              <input
+                id="new-game-cover-url"
+                type="url"
+                value={newGameCoverUrl}
+                onChange={(event) => setNewGameCoverUrl(event.target.value)}
+                placeholder="https://..."
+              />
+            </div>
+            {newGameError && <p className="error">{newGameError}</p>}
+            <div className="dialog-actions">
+              <button
+                type="button"
+                onClick={handleCreateManualGame}
+                disabled={pendingId === 'create:manual'}
+              >
+                {pendingId === 'create:manual' ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setIsAddGameOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mobileActionGame && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onClick={() => setMobileActionGame(null)}
+        >
+          <div
+            className="confirm-dialog game-actions-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3>{mobileActionGame.title}</h3>
+            <div className="edit-form">
+              <label>State</label>
+              <select
+                value={mobileActionGame.status}
+                onChange={(event) =>
+                  handleMobileStatusChange(
+                    mobileActionGame,
+                    event.target.value as GameStatus,
+                  )
+                }
+                disabled={pendingId === mobileActionGame.id}
+              >
+                {Object.entries(statusMeta).map(([id, value]) => (
+                  <option key={id} value={id}>
+                    {value.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="dialog-actions">
+              <button
+                type="button"
+                onClick={() => {
+                  openEditDialog(mobileActionGame)
+                  setMobileActionGame(null)
+                }}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setGamePendingRemoval(mobileActionGame)
+                  setMobileActionGame(null)
+                }}
+              >
+                Remove
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setMobileActionGame(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isScopeManagerOpen && (
-        <div className="dialog-backdrop" role="presentation">
-          <div className="confirm-dialog" role="dialog" aria-modal="true">
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onClick={() => setIsScopeManagerOpen(false)}
+        >
+          <div
+            className="confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
             <h3>Collection options</h3>
             <p>Current collection password: {collectionPassword}</p>
             <div className="edit-form">
