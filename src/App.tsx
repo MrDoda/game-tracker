@@ -818,6 +818,23 @@ function App() {
                     {!isMobileLayout && (
                       <div className="bottom-hover-zone">
                         <div className="card-actions">
+                          {game.status === 'completed' && (
+                            <button
+                              type="button"
+                              className={`worth-replay-btn ${game.worthReplay ? 'active' : ''}`}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                handleWorthReplayChange(game.id, !game.worthReplay)
+                              }}
+                              disabled={pendingId === `worthreplay:${game.id}`}
+                            >
+                              {pendingId === `worthreplay:${game.id}`
+                                ? 'Saving...'
+                                : game.worthReplay
+                                  ? 'Unmark Worth Replay'
+                                  : 'Mark Worth Replay'}
+                            </button>
+                          )}
                           <select
                             value={game.status}
                             onClick={(event) => event.stopPropagation()}
@@ -832,29 +849,6 @@ function App() {
                               </option>
                             ))}
                           </select>
-                          <button
-                            type="button"
-                            className={`worth-replay-btn ${game.worthReplay ? 'active' : ''}`}
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              handleWorthReplayChange(game.id, !game.worthReplay)
-                            }}
-                            disabled={
-                              game.status !== 'completed' ||
-                              pendingId === `worthreplay:${game.id}`
-                            }
-                            title={
-                              game.status !== 'completed'
-                                ? 'Set status to Completed first'
-                                : undefined
-                            }
-                          >
-                            {pendingId === `worthreplay:${game.id}`
-                              ? 'Saving...'
-                              : game.worthReplay
-                                ? 'Unmark Worth Replay'
-                                : 'Mark Worth Replay'}
-                          </button>
                         </div>
                       </div>
                     )}
@@ -1053,25 +1047,19 @@ function App() {
               >
                 Edit
               </button>
-              <button
-                type="button"
-                onClick={() => handleMobileWorthReplayChange(mobileActionGame)}
-                disabled={
-                  mobileActionGame.status !== 'completed' ||
-                  pendingId === `worthreplay:${mobileActionGame.id}`
-                }
-                title={
-                  mobileActionGame.status !== 'completed'
-                    ? 'Set status to Completed first'
-                    : undefined
-                }
-              >
-                {pendingId === `worthreplay:${mobileActionGame.id}`
-                  ? 'Saving...'
-                  : mobileActionGame.worthReplay
-                    ? 'Unmark Worth Replay'
-                    : 'Mark Worth Replay'}
-              </button>
+              {mobileActionGame.status === 'completed' && (
+                <button
+                  type="button"
+                  onClick={() => handleMobileWorthReplayChange(mobileActionGame)}
+                  disabled={pendingId === `worthreplay:${mobileActionGame.id}`}
+                >
+                  {pendingId === `worthreplay:${mobileActionGame.id}`
+                    ? 'Saving...'
+                    : mobileActionGame.worthReplay
+                      ? 'Unmark Worth Replay'
+                      : 'Mark Worth Replay'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
