@@ -1,4 +1,10 @@
-export type GameStatus = 'backlog' | 'playing' | 'played' | 'completed' | 'perfect'
+export type GameStatus =
+  | 'backlog'
+  | 'playing'
+  | 'played'
+  | 'completed'
+  | 'perfect'
+  | 'playnext'
 
 export interface GameEntry {
   id: string
@@ -7,6 +13,7 @@ export interface GameEntry {
   steamAppId?: string
   customCover?: boolean
   status: GameStatus
+  worthReplay?: boolean
   source: string
   externalId: string
   createdAt?: number

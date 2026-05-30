@@ -64,6 +64,7 @@ export const subscribeToGames = (
           steamAppId: raw.steamAppId,
           customCover: raw.customCover,
           status: raw.status,
+          worthReplay: Boolean(raw.worthReplay),
           source: raw.source,
           externalId: raw.externalId,
           createdAt: raw.createdAt?.seconds,
@@ -86,6 +87,7 @@ export const addGameToCollection = async (
       ...input,
       customCover: input.customCover ?? false,
       status: 'backlog',
+      worthReplay: false,
       createdAt: serverTimestamp(),
     },
     { merge: true },
@@ -110,6 +112,14 @@ export const updateGameDetails = async (
     coverUrl: input.coverUrl,
     customCover: true,
   })
+}
+
+export const updateGameWorthReplay = async (
+  scope: string,
+  id: string,
+  worthReplay: boolean,
+) => {
+  await updateDoc(doc(gamesCollectionForScope(scope), id), { worthReplay })
 }
 
 export const removeGameFromCollection = async (scope: string, id: string) => {

@@ -167,6 +167,18 @@ h1 {
   box-shadow: 0 0 0 4px rgba(53, 211, 192, 0.18);
 }
 
+.hide-search-btn {
+  margin-top: 0.55rem;
+  border: 1px solid #5b6f90;
+  border-radius: 999px;
+  background: #152035;
+  color: #d8e8ff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.38rem 0.75rem;
+  cursor: pointer;
+}
+
 .search-grid,
 .collection-grid {
   display: grid;
@@ -322,6 +334,20 @@ h2 {
   color: #8ff2bf;
 }
 
+.filters .filter-playnext:hover,
+.filters .filter-playnext.active {
+  border-color: #bc84ff;
+  background: #2b1b44;
+  color: #e0cbff;
+}
+
+.filters .filter-worthreplay:hover,
+.filters .filter-worthreplay.active {
+  border-color: #ff77cb;
+  background: #451534;
+  color: #ffc5e7;
+}
+
 .filters .filter-perfect:hover,
 .filters .filter-perfect.active {
   border-color: #ff5a7a;
@@ -417,6 +443,13 @@ h2 {
   position: relative;
 }
 
+.status-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: flex-start;
+}
+
 .game-info select {
   border-radius: 8px;
   border: 1px solid #334864;
@@ -431,9 +464,19 @@ h2 {
   color: #8ff2bf;
 }
 
+.status-playnext {
+  background: #2b1b44;
+  color: #e0cbff;
+}
+
 .status-perfect {
   background: #461423;
   color: #ffb7c7;
+}
+
+.status-worthreplay {
+  background: #451534;
+  color: #ffc5e7;
 }
 
 .status-played {
@@ -519,6 +562,33 @@ h2 {
   transform: translateY(4px);
   pointer-events: none;
   transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.card-actions {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.worth-replay-btn {
+  border: 1px solid #5f3250;
+  border-radius: 8px;
+  padding: 0.44rem 0.56rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #f9d9ec;
+  background: #3a1a2d;
+  cursor: pointer;
+}
+
+.worth-replay-btn.active {
+  border-color: #ff77cb;
+  color: #ffd4ed;
+  background: #57203f;
+}
+
+.worth-replay-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .game-info:hover .bottom-hover-zone,

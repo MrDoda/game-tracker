@@ -5,6 +5,7 @@ import {
   subscribeToGames,
   updateGameDetails,
   updateGameStatus,
+  updateGameWorthReplay,
 } from './firebase'
 import { GameCover } from './components/GameCover'
 import { searchGames } from './services/gameSearch'
@@ -24,6 +25,7 @@ const allowedCollectionPasswords = ['doda', 'lurson'] as const
 
 type CollectionPassword = (typeof allowedCollectionPasswords)[number]
 type SortMode = 'date' | 'alphabet'
+type CollectionFilter = 'all' | GameStatus | 'worthreplay'
 
 const isCollectionPassword = (value: string): value is CollectionPassword =>
   allowedCollectionPasswords.includes(value as CollectionPassword)
@@ -64,24 +66,29 @@ const statusMeta: Record<
 > = {
   perfect: { label: '100%', icon: '[100]', color: 'status-perfect' },
   completed: { label: 'Completed', icon: '[OK]', color: 'status-completed' },
+  playnext: { label: 'Play Next', icon: '[NEXT]', color: 'status-playnext' },
   played: { label: 'Played & Put Away', icon: '[PA]', color: 'status-played' },
   backlog: { label: 'Backlog', icon: '[BL]', color: 'status-backlog' },
   playing: { label: 'Playing Now', icon: '[NOW]', color: 'status-playing' },
 }
 
-const filters: Array<'all' | GameStatus> = [
+const filters: CollectionFilter[] = [
   'all',
+  'playnext',
   'perfect',
   'completed',
+  'worthreplay',
   'backlog',
   'played',
   'playing',
 ]
 
-const filterLabelMap: Record<'all' | GameStatus, string> = {
+const filterLabelMap: Record<CollectionFilter, string> = {
   all: 'All',
+  playnext: 'Play Next',
   perfect: '100%',
   completed: 'Completed',
+  worthreplay: 'Worth Replay',
   backlog: 'Backlog',
   played: 'Played & Put Away',
   playing: 'Playing Now',
@@ -100,7 +107,7 @@ function App() {
   const [switchError, setSwitchError] = useState<string | null>(null)
 
   const [games, setGames] = useState<GameEntry[]>([])
-  const [activeFilter, setActiveFilter] = useState<'all' | GameStatus>('all')
+  const [activeFilter, setActiveFilter] = useState<CollectionFilter>('all')
   const [isMobileLayout, setIsMobileLayout] = useState(
     () =>
       typeof window !== 'undefined' &&
@@ -228,6 +235,9 @@ function App() {
 
   const filteredGames = useMemo(() => {
     if (activeFilter === 'all') return games
+    if (activeFilter === 'worthreplay') {
+      return games.filter((game) => game.status === 'completed' && game.worthReplay)
+    }
     return games.filter((game) => game.status === activeFilter)
   }, [activeFilter, games])
 
@@ -246,10 +256,12 @@ function App() {
   }, [filteredGames, sortMode])
 
   const filterCounts = useMemo(() => {
-    const counts: Record<'all' | GameStatus, number> = {
+    const counts: Record<CollectionFilter, number> = {
       all: games.length,
       perfect: 0,
       completed: 0,
+      playnext: 0,
+      worthreplay: 0,
       backlog: 0,
       played: 0,
       playing: 0,
@@ -257,6 +269,9 @@ function App() {
 
     games.forEach((game) => {
       counts[game.status] += 1
+      if (game.status === 'completed' && game.worthReplay) {
+        counts.worthreplay += 1
+      }
     })
 
     return counts
@@ -326,6 +341,12 @@ function App() {
   const handleSortChange = (mode: SortMode) => {
     setSortMode(mode)
     window.localStorage.setItem(SORT_MODE_STORAGE_KEY, mode)
+  }
+
+  const handleHideSearchResults = () => {
+    setSearchInput('')
+    setSearchResults([])
+    setSearchError(null)
   }
 
   const handleAddGame = async (game: SearchResult) => {
@@ -421,9 +442,34 @@ function App() {
     }
   }
 
+  const handleWorthReplayChange = async (id: string, worthReplay: boolean) => {
+    if (!collectionPassword) return false
+
+    setPendingId(`worthreplay:${id}`)
+    setFirebaseError(null)
+
+    try {
+      await updateGameWorthReplay(collectionPassword, id, worthReplay)
+      return true
+    } catch {
+      setFirebaseError('Could not update Worth Replay in Firebase.')
+      return false
+    } finally {
+      setPendingId(null)
+    }
+  }
+
   const handleMobileStatusChange = async (game: GameEntry, status: GameStatus) => {
     if (status === game.status) return
     const ok = await handleStatusChange(game.id, status)
+    if (ok) {
+      setMobileActionGame(null)
+    }
+  }
+
+  const handleMobileWorthReplayChange = async (game: GameEntry) => {
+    if (game.status !== 'completed') return
+    const ok = await handleWorthReplayChange(game.id, !game.worthReplay)
     if (ok) {
       setMobileActionGame(null)
     }
@@ -571,6 +617,15 @@ function App() {
           onChange={(event) => setSearchInput(event.target.value)}
           placeholder="Search full or partial title (e.g. cyberpunk, mario, witcher)..."
         />
+        {trimmedSearch.length >= 2 && (
+          <button
+            type="button"
+            className="hide-search-btn"
+            onClick={handleHideSearchResults}
+          >
+            Hide search results
+          </button>
+        )}
         {trimmedSearch.length >= 2 && searchLoading && (
           <p className="meta">Searching game sources...</p>
         )}
@@ -750,25 +805,57 @@ function App() {
                   </div>
                   <div className="game-info">
                     {!isDenseCollection && <h3>{game.title}</h3>}
-                    <span className={`status-pill ${status.color}`}>
-                      {isDenseCollection ? status.icon : `${status.icon} ${status.label}`}
-                    </span>
+                    <div className="status-pill-row">
+                      <span className={`status-pill ${status.color}`}>
+                        {isDenseCollection ? status.icon : `${status.icon} ${status.label}`}
+                      </span>
+                      {game.status === 'completed' && game.worthReplay && (
+                        <span className="status-pill status-worthreplay">
+                          {isDenseCollection ? '[WR]' : '[WR] Worth Replay'}
+                        </span>
+                      )}
+                    </div>
                     {!isMobileLayout && (
                       <div className="bottom-hover-zone">
-                        <select
-                          value={game.status}
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={(event) =>
-                            handleStatusChange(game.id, event.target.value as GameStatus)
-                          }
-                          disabled={pendingId === game.id}
-                        >
-                          {Object.entries(statusMeta).map(([id, value]) => (
-                            <option key={id} value={id}>
-                              {value.label}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="card-actions">
+                          <select
+                            value={game.status}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={(event) =>
+                              handleStatusChange(game.id, event.target.value as GameStatus)
+                            }
+                            disabled={pendingId === game.id}
+                          >
+                            {Object.entries(statusMeta).map(([id, value]) => (
+                              <option key={id} value={id}>
+                                {value.label}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            className={`worth-replay-btn ${game.worthReplay ? 'active' : ''}`}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleWorthReplayChange(game.id, !game.worthReplay)
+                            }}
+                            disabled={
+                              game.status !== 'completed' ||
+                              pendingId === `worthreplay:${game.id}`
+                            }
+                            title={
+                              game.status !== 'completed'
+                                ? 'Set status to Completed first'
+                                : undefined
+                            }
+                          >
+                            {pendingId === `worthreplay:${game.id}`
+                              ? 'Saving...'
+                              : game.worthReplay
+                                ? 'Unmark Worth Replay'
+                                : 'Mark Worth Replay'}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -965,6 +1052,25 @@ function App() {
                 }}
               >
                 Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMobileWorthReplayChange(mobileActionGame)}
+                disabled={
+                  mobileActionGame.status !== 'completed' ||
+                  pendingId === `worthreplay:${mobileActionGame.id}`
+                }
+                title={
+                  mobileActionGame.status !== 'completed'
+                    ? 'Set status to Completed first'
+                    : undefined
+                }
+              >
+                {pendingId === `worthreplay:${mobileActionGame.id}`
+                  ? 'Saving...'
+                  : mobileActionGame.worthReplay
+                    ? 'Unmark Worth Replay'
+                    : 'Mark Worth Replay'}
               </button>
               <button
                 type="button"
