@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import {
   addGameToCollection,
   removeGameFromCollection,
@@ -120,6 +120,7 @@ function App() {
     readStoredColumnValue(DESKTOP_COLUMNS_STORAGE_KEY, desktopColumnOptions, 7),
   )
   const [sortMode, setSortMode] = useState<SortMode>(readStoredSortMode)
+  const [collectionSearchInput, setCollectionSearchInput] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -138,6 +139,8 @@ function App() {
   const [newGameError, setNewGameError] = useState<string | null>(null)
   const [deferredInstallPrompt, setDeferredInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null)
+  const deferredCollectionSearchInput = useDeferredValue(collectionSearchInput)
+  const trimmedCollectionSearch = deferredCollectionSearchInput.trim().toLowerCase()
   const trimmedSearch = searchInput.trim()
 
   useEffect(() => {
@@ -233,13 +236,22 @@ function App() {
     [games],
   )
 
-  const filteredGames = useMemo(() => {
+  const categoryFilteredGames = useMemo(() => {
     if (activeFilter === 'all') return games
     if (activeFilter === 'worthreplay') {
       return games.filter((game) => game.status === 'completed' && game.worthReplay)
     }
     return games.filter((game) => game.status === activeFilter)
   }, [activeFilter, games])
+
+  const filteredGames = useMemo(() => {
+    if (!trimmedCollectionSearch) return categoryFilteredGames
+
+    return categoryFilteredGames.filter((game) => {
+      const haystack = `${game.title} ${game.source} ${game.externalId} ${game.steamAppId ?? ''}`
+      return haystack.toLowerCase().includes(trimmedCollectionSearch)
+    })
+  }, [categoryFilteredGames, trimmedCollectionSearch])
 
   const sortedGames = useMemo(() => {
     const items = [...filteredGames]
@@ -726,6 +738,16 @@ function App() {
                 </button>
               ))}
             </div>
+            <label className="collection-text-filter">
+              <span className="sr-only">Filter visible games</span>
+              <input
+                type="search"
+                value={collectionSearchInput}
+                onChange={(event) => setCollectionSearchInput(event.target.value)}
+                placeholder="Filter games..."
+                aria-label="Filter visible games"
+              />
+            </label>
             <div className="sort-toggle" role="group" aria-label="Collection sort">
               <button
                 type="button"
@@ -751,7 +773,11 @@ function App() {
           <p className="empty">
             {games.length === 0
               ? 'Search for games above and add your first one to the backlog.'
-              : 'No games match this filter yet.'}
+              : trimmedCollectionSearch
+                ? 'No games match that text filter.'
+                : categoryFilteredGames.length === 0
+                  ? 'No games match this filter yet.'
+                  : 'No games match the current category and text filter.'}
           </p>
         )}
         <div
